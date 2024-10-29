@@ -1,6 +1,7 @@
 import pika
 import argparse
 import json
+import struct
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
@@ -43,12 +44,15 @@ def main(host, exchange):
         except:
             print("Valor não numérico\n")
             continue
-        order_json = json.dumps(humidity).encode('utf-8')
-        signature = sign_message(private_key, order_json)
+        value = json.dumps({"humidity":humidity})
+        byte_value = value.encode('utf-8')
+        signature = sign_message(private_key, byte_value)
+
         message = {
-            "order": humidity,
+            "value": value,
             "signature": signature.hex()
         }
+
         channel.basic_publish(exchange=exchange, routing_key=routing_key, body=json.dumps(message))
         print("Done\n")
 
