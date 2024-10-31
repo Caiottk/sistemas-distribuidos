@@ -1,0 +1,12 @@
+*.DS_Store
+__py_cache__
+*.zip
+*.pem
+*.csv
+*.pyc
+application-04/server/data.json
+log-*.json
+data-*.json
+.idea/
+.venv/
+myenv/
