@@ -68,7 +68,7 @@ def on_actuators_data_received(ch, method, properties, body):
     if(verify_signature(body,"irrigation_system")):
         message = json.loads(body.decode('utf-8'))
         schedule = message["value"]
-        print(f" [x] humidity received:{schedule}")
+        print(f" [x] schedule received:{schedule}")
     
 
 def main():

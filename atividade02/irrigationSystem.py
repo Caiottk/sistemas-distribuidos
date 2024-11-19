@@ -97,21 +97,21 @@ def on_humidity_data_received(ch, method, properties, body):
             channel.basic_publish(exchange=exchange, routing_key=actuators_routing_key, body=json.dumps(message))
             print(f" [x] schedule plan sent: {message['value']}")
 
-def on_humidity_data_received(ch, method, properties, body):
-    global host, exchange,actuators_queue,actuators_routing_key
-    if(verify_signature(body,"moist_sensor")):
-        message = json.loads(body.decode('utf-8'))
-        humidity = float(json.loads(message["value"])["humidity"])
-        print(f" [x] humidity received:{humidity}")
-        schedule = calc_irrigation_based_on_humidity(humidity)
-        if schedule is not None:
-            signature = sign_message(private_key, schedule.encode('utf-8'))
-            message = {
-                "value": schedule,
-                "signature": signature.hex()
-            }
-            channel.basic_publish(exchange=exchange, routing_key=actuators_routing_key, body=json.dumps(message))
-            print(f" [x] schedule plan sent: {message['value']}")
+# def on_humidity_data_received(ch, method, properties, body):
+#     global host, exchange,actuators_queue,actuators_routing_key
+#     if(verify_signature(body,"moist_sensor")):
+#         message = json.loads(body.decode('utf-8'))
+#         humidity = float(json.loads(message["value"])["humidity"])
+#         print(f" [x] humidit received:{humidity}")
+#         schedule = calc_irrigation_based_on_humidity(humidity)
+#         if schedule is not None:
+#             signature = sign_message(private_key, schedule.encode('utf-8'))
+#             message = {
+#                 "value": schedule,
+#                 "signature": signature.hex()
+#             }
+#             channel.basic_publish(exchange=exchange, routing_key=actuators_routing_key, body=json.dumps(message))
+#             print(f" [x] schedule plan sent: {message['value']}")
 
 def calc_irrigation_based_on_temperature(temperature):
     if temperature < 5:
