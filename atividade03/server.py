@@ -27,14 +27,16 @@ class Leader:
         print('Leader is running...')
         self.__daemon.requestLoop()
 
-    def register_voter(self, uri):
-        self.__voter_uris.append(uri)
-        print(f"Novo votante registrado. URI: {uri}")
-        return True
-    
-    def register_observer(self, uri):
-        self.__observer_uris.append(uri)
-        print(f"Novo observador registrado. URI: {uri}")
+    def register(self, uri):
+        if len(self.__voter_uris) ==  self.__quorum_size:
+            self.__observer_uris.append(uri)
+            print(f"Novo observer registrado. URI: {uri}")
+            return True
+        else:
+            self.__voter_uris.append(uri)
+            print(f"Novo votante registrado. URI: {uri}")
+            voter = Pyro5.api.Proxy(uri)
+            voter.notify_voter()
         return True
 
     def get_message(self,offset):
@@ -42,28 +44,33 @@ class Leader:
             print("Erro")
             raise Exception("Offset incorreto")
         messages = []
-
         for i in range(offset,len(self.__uncommited_log)):
             messages.append(self.__uncommited_log[i]['entry'])
             self.__uncommited_log[i]['votes'] += 1
-            
             if self.__uncommited_log[i]['votes'] == self.__quorum_size:
                 self.__commited_log.append(self.__uncommited_log[i]['entry'])
+                
                 #Notificar os consumidores
-
         return messages
-    
+
     def confirm_message(self,offset):
         self.__uncommited_log[offset]['votes'] += 1
         if self.__uncommited_log[offset]['votes'] == self.__quorum_size:
             self.__commited_log.append(self.__uncommited_log[offset]['entry'])
-            self.__voting = False
+            self.__notify_commit()
+            self.__voting = True
+
+    def __notify_commit(self):
+        for voter_uri in self.__voter_uris:
+            voter = Pyro5.api.Proxy(voter_uri)
+            voter.commit()
 
     def __notify_voters(self):
         for voter_uri in self.__voter_uris:    
             try:
                 voter = Pyro5.api.Proxy(voter_uri)
-                voter.notify()
+                voter.notify_voter()
+                print("Notificando")
             except:
                 print("Votante indisponível")
     
@@ -73,12 +80,15 @@ class Leader:
     def __append_and_notify(self,entry):
         while self.__voting:
             pass
+        self.__voting = True
+        print("Ola")
         self.__append_uncommited(entry)
         self.__notify_voters()
 
     def publish(self, entry):
-        thread = threading.Thread(target=self.__append_and_notify(entry))
-        thread.start()
+        self.__append_and_notify(entry)
+        #thread = threading.Thread(target=self.__append_and_notify(entry))
+        #thread.start()
 
 if __name__ == '__main__':
     leader = Leader()
