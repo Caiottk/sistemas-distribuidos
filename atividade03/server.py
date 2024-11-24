@@ -10,7 +10,6 @@ class Leader:
         self.__observer_uris = []
 
         self.__uncommited_log = []
-    
         self.__commited_log = []
 
         self.__quorum_size = 2
@@ -20,6 +19,9 @@ class Leader:
 
         ns = Pyro5.api.locate_ns()
         ns.register('Líder-Epoca1', self.__uri)
+
+        self.__voting = False
+        
 
     def start(self):
         print('Leader is running...')
@@ -36,17 +38,27 @@ class Leader:
         return True
 
     def get_message(self,offset):
-        print("Offset")
-        if (len(self.__commited_log) - 1) < offset:
+        if (len(self.__uncommited_log)) < offset:
+            print("Erro")
             raise Exception("Offset incorreto")
         messages = []
+
         for i in range(offset,len(self.__uncommited_log)):
             messages.append(self.__uncommited_log[i]['entry'])
             self.__uncommited_log[i]['votes'] += 1
+            
             if self.__uncommited_log[i]['votes'] == self.__quorum_size:
                 self.__commited_log.append(self.__uncommited_log[i]['entry'])
+                #Notificar os consumidores
+
         return messages
     
+    def confirm_message(self,offset):
+        self.__uncommited_log[offset]['votes'] += 1
+        if self.__uncommited_log[offset]['votes'] == self.__quorum_size:
+            self.__commited_log.append(self.__uncommited_log[offset]['entry'])
+            self.__voting = False
+
     def __notify_voters(self):
         for voter_uri in self.__voter_uris:    
             try:
@@ -58,9 +70,15 @@ class Leader:
     def __append_uncommited(self,entry):
         self.__uncommited_log.append({'entry':entry,'votes':0})
 
-    def publish(self, entry):
+    def __append_and_notify(self,entry):
+        while self.__voting:
+            pass
         self.__append_uncommited(entry)
         self.__notify_voters()
+
+    def publish(self, entry):
+        thread = threading.Thread(target=self.__append_and_notify(entry))
+        thread.start()
 
 if __name__ == '__main__':
     leader = Leader()

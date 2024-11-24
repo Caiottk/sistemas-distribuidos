@@ -45,7 +45,6 @@ class Voter:
         print("Notificação Recebida!")
         self.__leader = Pyro5.api.Proxy(self.__leader_uri)
         messages = self.__leader.get_message(self.offset)
-        print(messages)
         self.offset += len(messages)
 
 if __name__ == '__main__':
