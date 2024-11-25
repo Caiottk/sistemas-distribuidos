@@ -2,6 +2,9 @@ import Pyro5.api
 from threading import Timer
 import time
 import threading
+import copy 
+
+HEARTBEAT_PERIOD = 10
 
 @Pyro5.api.expose
 class Leader:
@@ -21,7 +24,8 @@ class Leader:
         ns.register('Líder-Epoca1', self.__uri)
 
         self.__voting = False
-        
+        self.__heartbeats = {}
+
     def get_commited_log(self):
         return self.__commited_log
 
@@ -29,14 +33,34 @@ class Leader:
         print('Leader is running...')
         self.__daemon.requestLoop()
 
+    def voter_heartbeat_monitor(self, uri):
+        while True:
+            time.sleep(HEARTBEAT_PERIOD)
+            if self.__heartbeats[uri]:
+               self.__heartbeats[uri] = False
+               continue
+            if uri in self.__voter_uris:
+                self.promote_observer_to_voter(uri)
+            break
+    
+    @Pyro5.api.oneway
+    def set_voter_heartbeat(self,uri):
+        self.__heartbeats[uri] = True
+
+    def __new_voter(self,uri):
+        self.__voter_uris.append(uri)
+        self.__heartbeats[uri] = True
+        thread = threading.Thread(target=self.voter_heartbeat_monitor,args=(uri,))
+        thread.start()
+        print(f"Novo votante registrado. URI: {uri}")
+
     def register(self, uri):
         if len(self.__voter_uris) ==  self.__quorum_size:
             self.__observer_uris.append(uri)
             print(f"Novo observer registrado. URI: {uri}")
             return 'observer'
         else:
-            self.__voter_uris.append(uri)
-            print(f"Novo votante registrado. URI: {uri}")
+            self.__new_voter(uri)
             return 'voter'
 
     def get_message(self,offset):
@@ -47,15 +71,12 @@ class Leader:
         messages = []
         for i in range(offset,len(self.__uncommited_log)):
             messages.append(self.__uncommited_log[i]['entry'])
-            #self.__uncommited_log[i]['votes'] += 1
-            #if self.__uncommited_log[i]['votes'] == self.__quorum_size:
-            #    self.__commited_log.append(self.__uncommited_log[i]['entry'])
-                #Notificar os consumidores
+
         return messages
 
     def confirm_message(self,uri,offset):
         self.__uncommited_log[offset-1]['votes'][uri] = True
-        print(uri)
+        print(f'Confirmation: {uri}')
         for vote in self.__uncommited_log[offset-1]['votes'].values():
             if not vote:
                 break
@@ -69,22 +90,37 @@ class Leader:
             voter = Pyro5.api.Proxy(voter_uri)
             voter.commit()
 
+    def promote_observer_to_voter(self,voter_uri):
+        if voter_uri in self.__voter_uris:
+            self.__voter_uris.remove(voter_uri)
+        if len(self.__observer_uris) > 0:
+            new_voter_uri = self.__observer_uris[0]
+            try:
+                new_voter = Pyro5.api.Proxy(new_voter_uri)
+                new_voter.set_voter()
+                self.__new_voter(new_voter_uri)
+                self.__observer_uris.remove(new_voter_uri)
+                print("Novo Votante!")
+                return new_voter_uri
+            except:
+                print("Votantes Indisponíveis!") 
+        else:
+            print("Número insuficiente de observadores") 
+
     def __notify_voters(self):
-        for voter_uri in self.__voter_uris:   
+        print(self.__voter_uris)
+        voter_uris = copy.deepcopy(self.__voter_uris)
+        for voter_uri in voter_uris:   
             try:
                 voter = Pyro5.api.Proxy(voter_uri)
                 voter.notify_voter()
                 print("Notificado")
             except:
-                if len(self.__observer_uris) >= 0:
-                    self.__voter_uris.remove(voter_uri)
-                    new_voter = self.__observer_uris[0]
-                    try:
-                        new_voter = Pyro5.api.Proxy(new_voter)
-                        new_voter.set_voter()
-                        print("Novo Votante!")
-                    except:
-                        print("Votantes Indisponíveis!")    
+                new_voter = self.promote_observer_to_voter(voter_uri)
+                voter = Pyro5.api.Proxy(new_voter)
+                voter.notify_voter()
+                print("Notificado")
+                
     
     def __append_uncommited(self,entry):
         votes = {key:False for key in self.__voter_uris}

@@ -1,6 +1,8 @@
 import Pyro5.api
 import threading
+import time
 
+HEARTBEAT_PERIOD = 3
 
 @Pyro5.api.expose
 class VoterObserver:
@@ -24,29 +26,43 @@ class VoterObserver:
 
         self.__send_confirm = 0
 
+    def send_heabeat(self):
+        while True:
+            leader = Pyro5.api.Proxy(self.__leader_uri) 
+            leader.set_voter_heartbeat(self.__uri)
+            time.sleep(HEARTBEAT_PERIOD)
+
     def set_voter(self):
         self.type = 'voter'
-        thread = threading.Thread(target=self.send_confirmation)
-        thread.start()
+        self.__voter_setup()
         #self.__commited_list = commited_list
         #self.__uncommited_list = uncommited_list
         #if len(self.__uncommited_list) < len(self.__commited_list):
             
-            
     def send_confirmation(self):
         while True:
             if self.__send_confirm != 0:
-                leader = Pyro5.api.Proxy(self.__leader_uri) 
-                leader.confirm_message(self.__uri,len(self.__uncommited_list))
-                self.__send_confirm -= 1
-
-    def start(self):
-        if self.type == 'voter':
-            self.__leader = Pyro5.api.Proxy(self.__leader_uri)
-            self.__commited_list = self.__leader.get_commited_log()
-        print('Voter is running...')
+                try:
+                    leader = Pyro5.api.Proxy(self.__leader_uri) 
+                    leader.confirm_message(self.__uri,len(self.__uncommited_list))
+                    self.__send_confirm -= 1
+                except:
+                    continue
+    def __voter_setup(self):
         thread = threading.Thread(target=self.send_confirmation)
         thread.start()
+        thread = threading.Thread(target=self.send_heabeat)
+        thread.start()
+        print('Voter is running...')
+
+    def start(self):
+        self.__leader = Pyro5.api.Proxy(self.__leader_uri)
+        self.__commited_list = self.__leader.get_commited_log()
+        if self.type == 'voter':
+            self.__voter_setup()
+            print('Voter is running...')
+        else:
+            print("Observer is running")
         self.__daemon.requestLoop()
 
     def add_notification_uri(self, uri):
