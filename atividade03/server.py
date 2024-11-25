@@ -10,7 +10,9 @@ HEARTBEAT_PERIOD = 10
 class Leader:
     def __init__(self):
         self.__voter_uris = []
+        self.__active_voter_uris = {}
         self.__observer_uris = []
+        self.__consumer_uris = []
 
         self.__uncommited_log = []
         self.__commited_log = []
@@ -25,7 +27,7 @@ class Leader:
 
         self.__voting = False
         self.__heartbeats = {}
-
+        self.__cur_offset = 0
     def get_commited_log(self):
         return self.__commited_log
 
@@ -50,6 +52,7 @@ class Leader:
     def __new_voter(self,uri):
         self.__voter_uris.append(uri)
         self.__heartbeats[uri] = True
+        self.__active_voter_uris[uri] = True
         thread = threading.Thread(target=self.voter_heartbeat_monitor,args=(uri,))
         thread.start()
         print(f"Novo votante registrado. URI: {uri}")
@@ -62,6 +65,9 @@ class Leader:
         else:
             self.__new_voter(uri)
             return 'voter'
+        
+    def register_consumer(self,uri):
+        self.__consumer_uris.append(uri)
 
     def get_message(self,offset):
         print("Get Message")
@@ -71,19 +77,28 @@ class Leader:
         messages = []
         for i in range(offset,len(self.__uncommited_log)):
             messages.append(self.__uncommited_log[i]['entry'])
-
+        if len(messages) > 1:
+            print(offset)
+            print(messages)
         return messages
 
     def confirm_message(self,uri,offset):
         self.__uncommited_log[offset-1]['votes'][uri] = True
         print(f'Confirmation: {uri}')
-        for vote in self.__uncommited_log[offset-1]['votes'].values():
-            if not vote:
-                break
-        #if self.__uncommited_log[offset-1]['votes'] == self.__quorum_size:
+        flag = True
+        for voter_uri,vote in self.__uncommited_log[offset-1]['votes'].items():
+            if not vote and self.__active_voter_uris[voter_uri]:
+                flag = False
+        if flag:
             self.__commited_log.append(self.__uncommited_log[offset-1]['entry'])
             self.__notify_commit()
+            self.__notify_consumer(self.__uncommited_log[offset-1]['entry'])
             self.__voting = False
+            
+    def __notify_consumer(self,message):
+        for consumer_uri in self.__consumer_uris:
+            consumer = Pyro5.api.Proxy(consumer_uri)
+            consumer.on_message(message)
 
     def __notify_commit(self):
         for voter_uri in self.__voter_uris:
@@ -93,6 +108,7 @@ class Leader:
     def promote_observer_to_voter(self,voter_uri):
         if voter_uri in self.__voter_uris:
             self.__voter_uris.remove(voter_uri)
+        self.__active_voter_uris[voter_uri] = False
         if len(self.__observer_uris) > 0:
             new_voter_uri = self.__observer_uris[0]
             try:

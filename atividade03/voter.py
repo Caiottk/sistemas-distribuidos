@@ -35,10 +35,7 @@ class VoterObserver:
     def set_voter(self):
         self.type = 'voter'
         self.__voter_setup()
-        #self.__commited_list = commited_list
-        #self.__uncommited_list = uncommited_list
-        #if len(self.__uncommited_list) < len(self.__commited_list):
-            
+
     def send_confirmation(self):
         while True:
             if self.__send_confirm != 0:
@@ -48,6 +45,7 @@ class VoterObserver:
                     self.__send_confirm -= 1
                 except:
                     continue
+
     def __voter_setup(self):
         thread = threading.Thread(target=self.send_confirmation)
         thread.start()
