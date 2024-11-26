@@ -9,6 +9,7 @@ HEARTBEAT_PERIOD = 10
 @Pyro5.api.expose
 class Leader:
     def __init__(self):
+        self.__lock = threading.Lock()
         self.__voter_uris = []
         self.__active_voter_uris = {}
         self.__observer_uris = []
@@ -56,6 +57,8 @@ class Leader:
         thread = threading.Thread(target=self.voter_heartbeat_monitor,args=(uri,))
         thread.start()
         print(f"Novo votante registrado. URI: {uri}")
+        self.__notify_voters_about_new(uri)
+
 
     def register(self, uri):
         if len(self.__voter_uris) ==  self.__quorum_size:
@@ -82,18 +85,27 @@ class Leader:
             print(messages)
         return messages
 
-    def confirm_message(self,uri,offset):
-        self.__uncommited_log[offset-1]['votes'][uri] = True
-        print(f'Confirmation: {uri}')
-        flag = True
-        for voter_uri,vote in self.__uncommited_log[offset-1]['votes'].items():
-            if not vote and self.__active_voter_uris[voter_uri]:
-                flag = False
+    def confirm_message(self, uri, offset):
+        if offset > len(self.__uncommited_log):
+            print(f"Erro: offset inválido {offset}")
+            return
+        
+        self.__uncommited_log[offset - 1]['votes'][uri] = True
+        print(f'Confirmação recebida de {uri} para offset {offset}')
+        
+        # Verifica se todos os votantes ativos confirmaram
+        flag = all(
+            vote or not self.__active_voter_uris[voter_uri]
+            for voter_uri, vote in self.__uncommited_log[offset - 1]['votes'].items()
+        )
         if flag:
-            self.__commited_log.append(self.__uncommited_log[offset-1]['entry'])
+            entry = self.__uncommited_log[offset - 1]['entry']
+            self.__commited_log.append(entry)
             self.__notify_commit()
-            self.__notify_consumer(self.__uncommited_log[offset-1]['entry'])
+            self.__notify_consumer(entry)
             self.__voting = False
+            print(f"Mensagem {entry} commitada com sucesso.")
+
             
     def __notify_consumer(self,message):
         for consumer_uri in self.__consumer_uris:
@@ -121,21 +133,32 @@ class Leader:
             except:
                 print("Votantes Indisponíveis!") 
         else:
-            print("Número insuficiente de observadores") 
+            print("Número insuficiente de observadores")
+
 
     def __notify_voters(self):
-        print(self.__voter_uris)
         voter_uris = copy.deepcopy(self.__voter_uris)
         for voter_uri in voter_uris:   
             try:
                 voter = Pyro5.api.Proxy(voter_uri)
                 voter.notify_voter()
-                print("Notificado")
+                print(f"Votante {voter_uri} notificado.")
             except:
-                new_voter = self.promote_observer_to_voter(voter_uri)
-                voter = Pyro5.api.Proxy(new_voter)
-                voter.notify_voter()
-                print("Notificado")
+                print(f"Falha ao notificar votante {voter_uri}")
+                self.promote_observer_to_voter(voter_uri)
+
+
+    def __notify_voters_about_new(self, new_voter_uri):
+        print(f"Notificando votantes sobre novo votante: {new_voter_uri}")
+        for voter_uri in self.__voter_uris:
+            if voter_uri != new_voter_uri: 
+                try:
+                    voter = Pyro5.api.Proxy(voter_uri)
+                    voter.notify_new_voter(new_voter_uri)
+                    print(f"Votante {voter_uri} notificado sobre {new_voter_uri}")
+                except:
+                    print(f"Falha ao notificar votante {voter_uri}")
+
                 
     
     def __append_uncommited(self,entry):
@@ -151,7 +174,8 @@ class Leader:
         self.__notify_voters()
 
     def publish(self, entry):
-        self.__append_and_notify(entry)
+        with self.__lock:
+            self.__append_and_notify(entry)
         #thread = threading.Thread(target=self.__append_and_notify(entry))
         #thread.start()
 

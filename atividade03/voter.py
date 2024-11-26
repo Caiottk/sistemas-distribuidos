@@ -94,6 +94,9 @@ class VoterObserver:
             self.__commited_list.append(self.__uncommited_list[i])
             print(f"Comitando {self.__uncommited_list[i]}")
             
+    @Pyro5.api.oneway
+    def notify_new_voter(self, new_voter_uri):
+        print(f"Recebida notificação do novo votante: {new_voter_uri}")
 
 if __name__ == '__main__':
     voter = VoterObserver()
