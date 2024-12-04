@@ -43,7 +43,9 @@ class VoterObserver:
                     leader = Pyro5.api.Proxy(self.__leader_uri) 
                     leader.confirm_message(self.__uri,len(self.__uncommited_list))
                     self.__send_confirm -= 1
+                    print("Sending Confirmation")
                 except:
+                    print("Error")
                     continue
 
     def __voter_setup(self):
@@ -80,7 +82,7 @@ class VoterObserver:
     @Pyro5.api.oneway
     def notify_voter(self):
         self.__leader = Pyro5.api.Proxy(self.__leader_uri)
-        messages = self.__leader.get_message(len(self.__commited_list))
+        messages = self.__leader.get_message(len(self.__commited_list))#mandar a época
         self.__uncommited_list += messages
         self.__send_confirm += 1
         print(messages)

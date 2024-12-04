@@ -6,7 +6,7 @@ import copy
 
 HEARTBEAT_PERIOD = 10
 
-@Pyro5.api.expose
+@Pyro5.api.expose#arrumar os exposes
 class Leader:
     def __init__(self):
         self.__lock = threading.Lock()
@@ -18,7 +18,7 @@ class Leader:
         self.__uncommited_log = []
         self.__commited_log = []
 
-        self.__quorum_size = 2
+        self.__quorum_size = 2 #3
         
         self.__daemon = Pyro5.server.Daemon()
         self.__uri = self.__daemon.register(self)
@@ -29,6 +29,7 @@ class Leader:
         self.__voting = False
         self.__heartbeats = {}
         self.__cur_offset = 0
+
     def get_commited_log(self):
         return self.__commited_log
 
@@ -58,7 +59,7 @@ class Leader:
         thread.start()
         print(f"Novo votante registrado. URI: {uri}")
         self.__notify_voters_about_new(uri)
-
+        #Incrementar o quórum aqui
 
     def register(self, uri):
         if len(self.__voter_uris) ==  self.__quorum_size:
@@ -80,9 +81,7 @@ class Leader:
         messages = []
         for i in range(offset,len(self.__uncommited_log)):
             messages.append(self.__uncommited_log[i]['entry'])
-        if len(messages) > 1:
-            print(offset)
-            print(messages)
+        print(f"Message{messages} with offset{offset}")
         return messages
 
     def confirm_message(self, uri, offset):
