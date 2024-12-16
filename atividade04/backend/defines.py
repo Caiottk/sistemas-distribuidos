@@ -10,4 +10,7 @@ pedidos_enviados_key = "e_commerce_queue.pedidos_enviados"
 
 pedidos_excluidos_key = "e_commerce_queue.pedidos_excluidos"
 
+get_produtos = "e_commerce_queue.get_produtos"
+lista_produtos = "e_commerce_queue.lista_produtos"
+
 host, exchange = "localhost", "e_commerce"
