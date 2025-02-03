@@ -5,10 +5,27 @@ import { assets } from '../assets/assets';
 import CartTotal from '../components/CartTotal';
 
 const Cart = () => {
-  const { products, currency, cartItems, updateQuantity, navigate, addOrder } =
-    useContext(ShopContext);
+  const {
+    currency,
+    cartItems,
+    updateQuantity,
+    navigate,
+    addOrder,
+    fetchProducts,
+  } = useContext(ShopContext);
   const [cartData, setCartData] = useState([]);
+  const [products, setProducts] = useState([]);
 
+  // Buscar produtos ao carregar o componente
+  useEffect(() => {
+    const loadProducts = async () => {
+      const data = await fetchProducts();
+      setProducts(data);
+    };
+    loadProducts();
+  }, [fetchProducts]);
+
+  // Atualizar cartData quando cartItems mudar
   useEffect(() => {
     let tempData = [];
     for (const item in cartItems) {
@@ -31,18 +48,19 @@ const Cart = () => {
         <Title text1={'YOUR'} text2={'CART'} />
       </div>
 
-      {/* Cart Items      */}
-
+      {/* Cart Items */}
       <div>
         {cartData.map((item, index) => {
           const productData = products.find(
             (product) => product._id === item._id
           );
 
+          if (!productData) return null; // Se o produto não for encontrado, não renderizar
+
           return (
             <div
               key={index}
-              className="py-4 border-b border-t text-gray-700 grid  grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4"
+              className="py-4 border-b border-t text-gray-700 grid grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4"
             >
               <div className="flex items-start gap-6">
                 <img
@@ -56,11 +74,11 @@ const Cart = () => {
                   </p>
 
                   <div className="flex items-center gap-5 mt-2">
-                    <p className=" ">
+                    <p className="">
                       {currency}
                       {productData.price}
                     </p>
-                    <p className="px-2 sm:px-3 sm:py-1 border bg-slate-50 ">
+                    <p className="px-2 sm:px-3 sm:py-1 border bg-slate-50">
                       {item.size}
                     </p>
                   </div>
@@ -69,18 +87,15 @@ const Cart = () => {
 
               <input
                 onChange={(e) => {
-                  e.target.value === '' || e.target.value < 0
-                    ? null
-                    : updateQuantity(
-                        item._id,
-                        item.size,
-                        Number(e.target.value)
-                      );
+                  const newQuantity = Number(e.target.value);
+                  if (newQuantity >= 0) {
+                    updateQuantity(item._id, item.size, newQuantity);
+                  }
                 }}
-                className="border max-w-10 sm:max-w-20 px-1 sm:px-2 py-1 "
+                className="border max-w-10 sm:max-w-20 px-1 sm:px-2 py-1"
                 type="number"
-                min={1}
-                defaultValue={item.quantity}
+                min={0}
+                value={item.quantity}
               />
               <img
                 onClick={() => updateQuantity(item._id, item.size, 0)}
@@ -99,9 +114,9 @@ const Cart = () => {
 
           <div className="w-full text-end">
             <button
-              onClick={() => {
-                addOrder(); // Call addOrder to move items to orders state
-                navigate('/place-order');
+              onClick={async () => {
+                await addOrder(); // Criar o pedido
+                navigate('/orders'); // Redirecionar para a página de pedidos
               }}
               className="my-8 px-8 py-3 bg-black text-white text-sm"
             >
