@@ -1,0 +1,101 @@
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+
+const products = [
+  { id: 1, name: "Laptop", price: 1000 },
+  { id: 2, name: "Smartphone", price: 500 },
+  { id: 3, name: "Headphones", price: 100 },
+];
+
+function Home({ cart, setCart }) {
+  const addToCart = (product) => {
+    setCart((prev) => {
+      const exists = prev.find((item) => item.id === product.id);
+      return exists
+        ? prev.map((item) => (item.id === product.id ? { ...item, qty: item.qty + 1 } : item))
+        : [...prev, { ...product, qty: 1 }];
+    });
+  };
+
+  return (
+    <div className="p-4 flex">
+      <div className="w-3/4">
+        <h1 className="text-xl font-bold">Products</h1>
+        <div className="grid grid-cols-3 gap-4 mt-4">
+          {products.map((product) => (
+            <div key={product.id} className="p-4 border rounded">
+              <h2>{product.name}</h2>
+              <p>${product.price}</p>
+              <button className="bg-blue-500 text-white px-2 py-1 mt-2" onClick={() => addToCart(product)}>Add to Cart</button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <Cart cart={cart} setCart={setCart} />
+    </div>
+  );
+}
+
+function Cart({ cart, setCart }) {
+  const navigate = useNavigate();
+  const updateQty = (id, delta) => {
+    setCart((prev) => prev.map((item) => (item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item)));
+  };
+  return (
+    <div className="w-1/4 p-4 border-l">
+      <h2 className="font-bold">Cart</h2>
+      {cart.map((item) => (
+        <div key={item.id} className="flex justify-between items-center border-b py-2">
+          <p>{item.name} ({item.qty})</p>
+          <div>
+            <button onClick={() => updateQty(item.id, -1)}>-</button>
+            <button onClick={() => updateQty(item.id, 1)}>+</button>
+          </div>
+        </div>
+      ))}
+      <button className="bg-green-500 text-white px-4 py-2 mt-4" onClick={() => navigate("/checkout")}>
+        Checkout
+      </button>
+    </div>
+  );
+}
+
+function Checkout({ cart }) {
+  const navigate = useNavigate();
+  return (
+    <div className="p-4">
+      <h1 className="text-xl font-bold">Checkout</h1>
+      <input placeholder="Name" className="block border p-2 mt-2" />
+      <input placeholder="Address" className="block border p-2 mt-2" />
+      <input placeholder="Credit Card Number" className="block border p-2 mt-2" />
+      <button className="bg-blue-500 text-white px-4 py-2 mt-4" onClick={() => navigate("/orders")}>Place Order</button>
+    </div>
+  );
+}
+
+function Orders() {
+  return (
+    <div className="p-4">
+      <h1 className="text-xl font-bold">Order Status</h1>
+      <p>Your order is being processed.</p>
+      <Link to="/">Back to Home</Link>
+    </div>
+  );
+}
+
+export default function App() {
+  const [cart, setCart] = useState([]);
+  return (
+    <Router>
+      <nav className="p-4 bg-gray-200 flex gap-4">
+        <Link to="/">Home</Link>
+        <Link to="/orders">Orders</Link>
+      </nav>
+      <Routes>
+        <Route path="/" element={<Home cart={cart} setCart={setCart} />} />
+        <Route path="/checkout" element={<Checkout cart={cart} />} />
+        <Route path="/orders" element={<Orders />} />
+      </Routes>
+    </Router>
+  );
+}

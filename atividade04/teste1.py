@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 import pika
 import json
 import uuid
@@ -36,42 +36,6 @@ class Principal:
         )
         connection.close()
 
-    @staticmethod
-    def publish_pedidos_criados(pedido):
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
-        channel = connection.channel()
-        channel.exchange_declare(exchange=exchange, exchange_type="topic")
-        channel.basic_publish(
-            exchange=exchange,
-            routing_key=pedidos_criados_key,
-            body=json.dumps(pedido),
-        )
-        connection.close()
-
-    def on_pagamento_recusado(ch, method, properties, body):
-        try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
-            channel = connection.channel()
-            channel.exchange_declare(exchange=exchange, exchange_type="topic")
-
-            # Parse the incoming message
-            message = json.loads(body)
-
-            # Publish the response to the estoques_key routing key
-            channel.basic_publish(
-                exchange=exchange,
-                routing_key=pedidos_excluidos_key,
-                body=json.dumps(message),
-            )
-            connection.close()
-
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-            print("Pedido Excluido enviado com Sucesso")
-            return True
-        except Exception as e:
-            print(f"Erro ao publicar Pedido Excluido :\n{e}")
-            return False
-        
     # Function to consume messages from RabbitMQ
     @staticmethod
     def consume_from_rabbitmq():
@@ -94,10 +58,6 @@ class Principal:
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
         channel.basic_consume(queue=queue_name, on_message_callback=callback)
-
-        channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pagamentos_recusados_key)
-        channel.basic_consume(queue=queue_name, on_message_callback=Principal.on_pagamento_recusado)
-
         print("Waiting for messages on estoques_key...")
         channel.start_consuming()
 
@@ -122,30 +82,6 @@ async def get_products():
     return {"products": response['produtos']}
 update_queue = asyncio.Queue()
 
-# Checkout endpoint
-@app.post("/checkout")
-async def checkout(request: Request):
-    try:
-        # Parse the JSON payload
-        order = await request.json()
-
-        # Validate the required fields
-        if not all(key in order for key in ["name", "address", "card", "cart"]):
-            raise HTTPException(status_code=400, detail="Missing required fields")
-
-        # Process the order (e.g., save to database, send to RabbitMQ, etc.)
-        print("Received order:", order)
-        correlation_id = str(uuid.uuid4())
-
-        Principal.publish_pedidos_criados({"correlation_id":correlation_id,"order":order})
-        # For now, just return a success message
-        return {"message": "Order placed successfully", "order": order}
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-
 # SSE endpoint to notify product updates
 @app.get("/stream-products")
 async def stream_products():
@@ -164,24 +100,6 @@ async def update_products(new_products: list[dict]):
     await update_queue.put({"products": products})  # Notify SSE
     return {"message": "Product list updated"}
 
-
-@app.post("/payment")
-async def payment(request: Request):
-    try:
-        # Parse the JSON payload
-        order = await request.json()
-        print(order)
-        try:
-            int(order["card"])
-            return {"Aproved":True}
-        except:
-            return {"Aproved":False}
-        
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
 # Run the FastAPI app
 if __name__ == "__main__":
     import uvicorn
