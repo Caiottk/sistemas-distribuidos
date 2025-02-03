@@ -23,6 +23,7 @@ app.add_middleware(
 
 class Principal:
     responses = {}
+    orders = {}
     # Function to send a message to RabbitMQ
     @staticmethod
     def publish_get_estoque(correlation_id):
@@ -71,7 +72,10 @@ class Principal:
         except Exception as e:
             print(f"Erro ao publicar Pedido Excluido :\n{e}")
             return False
-        
+    
+    def on_pedidos_enviados(ch, method, properties, body):
+        print(message = json.loads(body))
+
     # Function to consume messages from RabbitMQ
     @staticmethod
     def consume_from_rabbitmq():
@@ -97,6 +101,9 @@ class Principal:
 
         channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pagamentos_recusados_key)
         channel.basic_consume(queue=queue_name, on_message_callback=Principal.on_pagamento_recusado)
+
+        channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pedidos_enviados_key)
+        channel.basic_consume(queue=queue_name, on_message_callback=Principal.on_pedidos_enviados)
 
         print("Waiting for messages on estoques_key...")
         channel.start_consuming()
@@ -137,7 +144,9 @@ async def checkout(request: Request):
         print("Received order:", order)
         correlation_id = str(uuid.uuid4())
 
-        Principal.publish_pedidos_criados({"correlation_id":correlation_id,"order":order})
+        Principal.publish_pedidos_criados({"correlation_id":correlation_id,"status":"Aguardando Pagamento","order":order})
+        Principal.orders[correlation_id] = order
+
         # For now, just return a success message
         return {"message": "Order placed successfully", "order": order}
     except json.JSONDecodeError:

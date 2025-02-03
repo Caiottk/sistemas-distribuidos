@@ -47,21 +47,6 @@ class Estoque:
         channel.start_consuming()
 
 
-        #Se inscreve no tópio de Pagamentos Aprovados
-        Estoque.channel.queue_declare(queue=e_commerce_queue)
-        Estoque.channel.queue_bind(exchange=exchange, queue=e_commerce_queue, routing_key=get_estoques_key)
-        Estoque.channel.basic_consume(queue=e_commerce_queue, on_message_callback=Estoque.on_get_estoque, auto_ack=True)
-    
-        Estoque.channel.start_consuming()
-        return
-        Estoque.channel.queue_declare(queue=e_commerce_queue,durable=True)
-        Estoque.channel.queue_bind(exchange=exchange, queue=e_commerce_queue, routing_key=pedidos_criados_key)
-        Estoque.channel.basic_consume(queue=e_commerce_queue, on_message_callback=Estoque.on_pedidos_criados, auto_ack=True)
-
-        Estoque.channel.queue_declare(queue=e_commerce_queue,durable=True)
-        Estoque.channel.queue_bind(exchange=exchange, queue=e_commerce_queue, routing_key=pedidos_excluidos_key)
-        Estoque.channel.basic_consume(queue=e_commerce_queue, on_message_callback=Estoque.on_pedidos_excluidos, auto_ack=True)
-
     def on_get_estoque(ch, method, properties, body):
         try:
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
@@ -109,6 +94,7 @@ class Estoque:
     def run()->None:
         while True:
             pass
+
 if __name__ == "__main__":
     Estoque.init()
     Estoque.run()

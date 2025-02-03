@@ -36,7 +36,7 @@ class Pagamento:
                 print("Response:", response.json())
                 response = response.json()
                 if(response["Aproved"]):
-                    pass
+                    Pagamento.publish_pagamentos_aprovados(order)
                 else:
                     Pagamento.publish_pagamentos_recusados(order)
             else:
@@ -78,11 +78,20 @@ class Pagamento:
             "id_pedido": int
         """
         try:
-            Pagamento.channel.basic_publish(exchange=exchange, routing_key = pagamentos_aprovados_key, body=json.dumps(message))
-            print("Pagamento Aprovados publicado com sucesso")
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
+            channel = connection.channel()
+            channel.exchange_declare(exchange=exchange, exchange_type="topic")
+            channel.basic_publish(
+                exchange=exchange,
+                routing_key=pagamentos_aprovados_key,
+                body=json.dumps(message),
+            )
+            connection.close()
+
+            print("Pagamento Recusado publicado com sucesso")
             return True
         except Exception as e:
-            print(f"Erro ao publicar Pagamento Aprovados\n{e}")
+            print(f"Erro ao publicar Pagamento Recusado\n{e}")
             return False
 
     def run()->None:
