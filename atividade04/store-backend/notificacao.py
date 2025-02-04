@@ -34,7 +34,31 @@ class Notificacao:
         channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pedidos_excluidos_key)
         channel.basic_consume(queue=queue_name, on_message_callback=Notificacao.on_pedidos_excluidos)
 
+
+        channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pagamentos_aprovados_key)
+        channel.basic_consume(queue=queue_name, on_message_callback=Notificacao.on_pedidos_aprovados)
+
+        channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pedidos_enviados_key)
+        channel.basic_consume(queue=queue_name, on_message_callback=Notificacao.on_pedidos_enviados)
+
+
+        channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pedidos_criados_key)
+        channel.basic_consume(queue=queue_name, on_message_callback=Notificacao.on_pedidos_criados)
         channel.start_consuming()
+    def on_pedidos_criados(ch, method, properties, body):
+        message = json.loads(body.decode('utf-8'))
+        Notificacao.order.append(message)
+        print(message)
+
+    def on_pedidos_enviados(ch, method, properties, body):
+        message = json.loads(body.decode('utf-8'))
+        Notificacao.order.append(message)
+        print(message)
+
+    def on_pedidos_aprovados(ch, method, properties, body):
+        message = json.loads(body.decode('utf-8'))
+        Notificacao.order.append(message)
+        print(message)
 
     def on_pedidos_excluidos(ch, method, properties, body):
         """TODOOO Sistema de Estoque!!!"""
@@ -50,7 +74,7 @@ class Notificacao:
         while True:
             # Simulate an order status update
             while len(Notificacao.order) == 0:
-                pass
+                await asyncio.sleep(0.1)
             order = Notificacao.order.pop(0)
 
             order = {

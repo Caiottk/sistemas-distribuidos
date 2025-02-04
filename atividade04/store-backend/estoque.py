@@ -75,10 +75,11 @@ class Estoque:
     def on_pedidos_criados(ch, method, properties, body):
         """TODOOO Sistema de Estoque!!!"""
         message = json.loads(body.decode('utf-8'))
-        Estoque.orders[message['correlation_id']] = message["order"]
-        for item in message["order"]["cart"]:
-            Estoque.produtos[item["id"]]["quantity"] -= item["quantity"]
-        
+        if "order" in message.keys():
+            Estoque.orders[message['correlation_id']] = message["order"]
+            for item in message["order"]["cart"]:
+                Estoque.produtos[item["id"]]["quantity"] -= item["quantity"]
+            
     def on_pedidos_excluidos(ch, method, properties, body):
         """TODOOO Sistema de Estoque!!!"""
         message = json.loads(body.decode('utf-8'))

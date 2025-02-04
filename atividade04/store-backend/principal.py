@@ -49,6 +49,9 @@ class Principal:
         )
         connection.close()
 
+    def on_pagamento_aprovados(ch, method, properties, body):
+        print("Pedido Aprovado")
+        
     def on_pagamento_recusado(ch, method, properties, body):
         try:
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
@@ -57,7 +60,12 @@ class Principal:
 
             # Parse the incoming message
             message = json.loads(body)
-
+            print("**********")
+            print(message)
+            print("**********")
+            if "status" not in message.keys() or message["status"] != "Recusado":
+                return
+            message["status"] = "Excluido"
             # Publish the response to the estoques_key routing key
             channel.basic_publish(
                 exchange=exchange,
@@ -67,8 +75,8 @@ class Principal:
             connection.close()
 
             ch.basic_ack(delivery_tag=method.delivery_tag)
-            print(message)
             print("Pedido Excluido com Sucesso")
+            print(message)
             return True
         except Exception as e:
             print(f"Erro ao Excluir Pedido :\n{e}")
@@ -76,7 +84,6 @@ class Principal:
     
     def on_pedidos_enviados(ch, method, properties, body):
         message = json.loads(body)
-        print(message)
 
     # Function to consume messages from RabbitMQ
     @staticmethod
@@ -104,12 +111,18 @@ class Principal:
         channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pagamentos_recusados_key)
         channel.basic_consume(queue=queue_name, on_message_callback=Principal.on_pagamento_recusado)
 
+        channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pagamentos_aprovados_key)
+        channel.basic_consume(queue=queue_name, on_message_callback=Principal.on_pagamento_aprovados)
+
+
         channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pedidos_enviados_key)
         channel.basic_consume(queue=queue_name, on_message_callback=Principal.on_pedidos_enviados)
 
         print("Waiting for messages on estoques_key...")
         channel.start_consuming()
 
+    
+        
 # Start the RabbitMQ consumer in a separate thread
 threading.Thread(target=Principal.consume_from_rabbitmq, daemon=True).start()
 
@@ -124,10 +137,9 @@ async def get_products():
 
     # Wait for response from estoques_key
     while Principal.responses[correlation_id] is None:
-        pass
+        await asyncio.sleep(0.1)
 
     response = Principal.responses.pop(correlation_id)
-    print(response['produtos'])
     return {"products": response['produtos']}
 
 # FastAPI endpoint
@@ -191,7 +203,6 @@ async def payment(request: Request):
     try:
         # Parse the JSON payload
         order = await request.json()
-        print(order)
         try:
             int(order["card"])
             return {"Aproved":True}

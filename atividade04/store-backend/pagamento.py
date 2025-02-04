@@ -4,6 +4,8 @@ import json
 import requests
 import threading
 import time
+import asyncio
+
 class Pagamento:
     connection,channel = None,None
     orders = []
@@ -25,7 +27,8 @@ class Pagamento:
     def processar_pagamentos():
         while True:
             while len(Pagamento.orders)==0:
-                pass
+                time.sleep(1)
+            time.sleep(1)
             order = Pagamento.orders.pop(0)
             order_info = order["order"]
             url = "http://0.0.0.0:8000/payment"
@@ -34,10 +37,14 @@ class Pagamento:
             if response.status_code == 200:
                 print("Payment successful!")
                 print("Response:", response.json())
+               
                 response = response.json()
-                if(response["Aproved"]):
+                print(type(response["Aproved"]))
+                if response["Aproved"]:
+                    order["status"] = "Aprovado"
                     Pagamento.publish_pagamentos_aprovados(order)
                 else:
+                    order["status"] = "Recusado"
                     Pagamento.publish_pagamentos_recusados(order)
             else:
                 print("Payment failed!")
@@ -88,7 +95,7 @@ class Pagamento:
             )
             connection.close()
 
-            print("Pagamento Recusado publicado com sucesso")
+            print("Pagamento Aprovado publicado com sucesso")
             return True
         except Exception as e:
             print(f"Erro ao publicar Pagamento Recusado\n{e}")

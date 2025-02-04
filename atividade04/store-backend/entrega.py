@@ -2,6 +2,8 @@ from defines import *
 from auxFunc import *
 import json
 import threading
+import time
+import asyncio
 
 class Entrega:
     connection,channel = None,None
@@ -27,13 +29,15 @@ class Entrega:
     def processar_envios():
         while True:
             while len(Entrega.orders) == 0:
-                pass
+                time.sleep(1)
             order = Entrega.orders.pop(0)
             Entrega.publish_pedidos_enviados(order)
 
     def on_pagamentos_aprovados(ch, method, properties, body):
         """Se algum pedido for aprovado, ele envia o pedido (publica no tópico pedidos enviados)"""
         message = json.loads(body.decode('utf-8'))
+        message["status"] = "Enviado"
+        time.sleep(5)
         Entrega.orders.append(message)
 
     def publish_pedidos_enviados(message:dict)->bool:
