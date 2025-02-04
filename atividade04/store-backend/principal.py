@@ -67,10 +67,11 @@ class Principal:
             connection.close()
 
             ch.basic_ack(delivery_tag=method.delivery_tag)
-            print("Pedido Excluido enviado com Sucesso")
+            print(message)
+            print("Pedido Excluido com Sucesso")
             return True
         except Exception as e:
-            print(f"Erro ao publicar Pedido Excluido :\n{e}")
+            print(f"Erro ao Excluir Pedido :\n{e}")
             return False
     
     def on_pedidos_enviados(ch, method, properties, body):
@@ -127,6 +128,16 @@ async def get_products():
     response = Principal.responses.pop(correlation_id)
     print(response['produtos'])
     return {"products": response['produtos']}
+
+# FastAPI endpoint
+@app.get("/orders")
+async def get_orders():
+    order_list = []
+    for correlation_id,order in Principal.orders.items():
+        order["order_id"] = correlation_id
+        order_list.append(order)
+    return order_list
+
 update_queue = asyncio.Queue()
 
 # Checkout endpoint
