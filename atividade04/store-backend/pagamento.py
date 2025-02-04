@@ -11,12 +11,10 @@ class Pagamento:
     orders = []
 
     def subscribe_to_topics()->None:
-        # Start consuming messages from topic_a
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
         channel = connection.channel()
         channel.exchange_declare(exchange=exchange, exchange_type="topic")
 
-        # Declare a queue for topic_a and bind it to the exchange
         result = channel.queue_declare(queue="", exclusive=True)
         queue_name = result.method.queue
         channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=pedidos_criados_key)
@@ -50,7 +48,6 @@ class Pagamento:
                 print("Payment failed!")
                 print("Status Code:", response.status_code)
                 print("Error:", response.json())
-                #Pagamento.orders.append(order)
                 time.sleep(10)
 
     def on_pedidos_criados(ch, method, properties, body):

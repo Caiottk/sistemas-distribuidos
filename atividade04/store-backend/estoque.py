@@ -6,7 +6,6 @@ import json
 class Estoque:
     connection,channel = None,None
 
-        # Sample product data
     produtos = [
         {"id": 1, "name": "Laptop", "price": 1200},
         {"id": 2, "name": "Mouse", "price": 30},
@@ -27,12 +26,10 @@ class Estoque:
 
     def subscribe_to_topics():
 
-        # Start consuming messages from topic_a
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
         channel = connection.channel()
         channel.exchange_declare(exchange=exchange, exchange_type="topic")
 
-        # Declare a queue for topic_a and bind it to the exchange
         result = channel.queue_declare(queue="", exclusive=True)
         queue_name = result.method.queue
         channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=get_estoques_key)
@@ -53,11 +50,9 @@ class Estoque:
             channel = connection.channel()
             channel.exchange_declare(exchange=exchange, exchange_type="topic")
 
-            # Parse the incoming message
             message = json.loads(body)
             correlation_id = message.get("correlation_id")
 
-            # Publish the response to the estoques_key routing key
             channel.basic_publish(
                 exchange=exchange,
                 routing_key=estoques_key,

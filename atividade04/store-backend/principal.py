@@ -9,22 +9,18 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware  
 
 app = FastAPI()
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow requests from this origin
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],  
+    allow_headers=["*"], 
 )
-
-# Dictionary to store responses
 
 
 class Principal:
     responses = {}
     orders = {}
-    # Function to send a message to RabbitMQ
     @staticmethod
     def publish_get_estoque(correlation_id):
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
@@ -58,7 +54,6 @@ class Principal:
             channel = connection.channel()
             channel.exchange_declare(exchange=exchange, exchange_type="topic")
 
-            # Parse the incoming message
             message = json.loads(body)
             print("**********")
             print(message)
@@ -66,7 +61,6 @@ class Principal:
             if "status" not in message.keys() or message["status"] != "Recusado":
                 return
             message["status"] = "Excluido"
-            # Publish the response to the estoques_key routing key
             channel.basic_publish(
                 exchange=exchange,
                 routing_key=pedidos_excluidos_key,
@@ -85,18 +79,15 @@ class Principal:
     def on_pedidos_enviados(ch, method, properties, body):
         message = json.loads(body)
 
-    # Function to consume messages from RabbitMQ
     @staticmethod
     def consume_from_rabbitmq():
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
         channel = connection.channel()
         channel.exchange_declare(exchange=exchange, exchange_type="topic")
 
-        # Declare a temporary queue
         result = channel.queue_declare(queue="", exclusive=True)
         queue_name = result.method.queue
 
-        # Bind the queue to the exchange with the correct routing key
         channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=estoques_key)
 
         def callback(ch, method, properties, body):
@@ -123,26 +114,21 @@ class Principal:
 
     
         
-# Start the RabbitMQ consumer in a separate thread
 threading.Thread(target=Principal.consume_from_rabbitmq, daemon=True).start()
 
-# FastAPI endpoint
 @app.get("/products")
 async def get_products():
     correlation_id = str(uuid.uuid4())
     Principal.responses[correlation_id] = None
 
-    # Send message to get_estoques_key
     Principal.publish_get_estoque(correlation_id)
 
-    # Wait for response from estoques_key
     while Principal.responses[correlation_id] is None:
         await asyncio.sleep(0.1)
 
     response = Principal.responses.pop(correlation_id)
     return {"products": response['produtos']}
 
-# FastAPI endpoint
 @app.get("/orders")
 async def get_orders():
     order_list = []
@@ -153,25 +139,20 @@ async def get_orders():
 
 update_queue = asyncio.Queue()
 
-# Checkout endpoint
 @app.post("/checkout")
 async def checkout(request: Request):
     try:
-        # Parse the JSON payload
         order = await request.json()
 
-        # Validate the required fields
         if not all(key in order for key in ["name", "address", "card", "cart"]):
             raise HTTPException(status_code=400, detail="Missing required fields")
 
-        # Process the order (e.g., save to database, send to RabbitMQ, etc.)
         print("Received order:", order)
         correlation_id = str(uuid.uuid4())
 
         Principal.publish_pedidos_criados({"correlation_id":correlation_id,"status":"Aguardando Pagamento","order":order})
         Principal.orders[correlation_id] = order
 
-        # For now, just return a success message
         return {"message": "Order placed successfully", "order": order}
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
@@ -189,7 +170,6 @@ async def stream_products():
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-# Route to update products (triggers SSE event)
 @app.post("/update-products")
 async def update_products(new_products: list[dict]):
     global products
@@ -214,7 +194,6 @@ async def payment(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-# Run the FastAPI app
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
