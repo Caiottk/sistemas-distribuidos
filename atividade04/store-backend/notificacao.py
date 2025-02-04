@@ -49,11 +49,13 @@ class Notificacao:
         status = "Processing"
         while True:
             # Simulate an order status update
-            
+            while len(Notificacao.order) == 0:
+                pass
+            order = Notificacao.order.pop(0)
 
             order = {
-                "order_id": "aaa",
-                "status": "bb"
+                "order_id": order["correlation_id"],
+                "status": order["status"]
             }
 
             yield f"data: {json.dumps(order)}\n\n"
