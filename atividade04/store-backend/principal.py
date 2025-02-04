@@ -75,7 +75,8 @@ class Principal:
             return False
     
     def on_pedidos_enviados(ch, method, properties, body):
-        print(message = json.loads(body))
+        message = json.loads(body)
+        print(message)
 
     # Function to consume messages from RabbitMQ
     @staticmethod

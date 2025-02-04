@@ -43,15 +43,15 @@ class Entrega:
             channel.exchange_declare(exchange=exchange, exchange_type="topic")
             channel.basic_publish(
                 exchange=exchange,
-                routing_key=pagamentos_recusados_key,
+                routing_key=pedidos_enviados_key,
                 body=json.dumps(message),
             )
             connection.close()
 
-            print("Pagamento Recusado publicado com sucesso")
+            print("Pedido Enviado publicado com sucesso")
             return True
         except Exception as e:
-            print(f"Erro ao publicar Pagamento Recusado\n{e}")
+            print(f"Erro ao publicar Pedido Enviado \n{e}")
             return False
 
     def run()->None:

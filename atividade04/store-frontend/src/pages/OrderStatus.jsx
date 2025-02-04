@@ -5,7 +5,7 @@ const OrderStatus = () => {
 
     // Listen for real-time updates using SSE
     useEffect(() => {
-        const eventSource = new EventSource('http://localhost:8001/notificacoes');
+        const eventSource = new EventSource('http://localhost:8001/notificacao');
 
         eventSource.onmessage = (event) => {
             const order = JSON.parse(event.data); // Parse the incoming order
