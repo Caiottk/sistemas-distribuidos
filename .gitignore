@@ -10,3 +10,4 @@ data-*.json
 .idea/
 .venv/
 myenv/
+*.log
