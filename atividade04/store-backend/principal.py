@@ -155,7 +155,7 @@ async def get_products():
     Principal.publish_get_estoque(correlation_id)
 
     # Wait for response from estoques_key with a timeout
-    timeout = 10  # Timeout in seconds
+    timeout = 30  # Timeout in seconds
     start_time = asyncio.get_event_loop().time()
     while Principal.responses[correlation_id] is None:
         await asyncio.sleep(0.1)  # Libera o event loop
